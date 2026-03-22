@@ -9,3 +9,8 @@ class PlanStep(BaseModel):
 
 class Plan(BaseModel):
     steps: List[PlanStep]
+
+class CriticResponse(BaseModel):
+    score: float
+    issues: List[str]
+    suggestions: List[str]

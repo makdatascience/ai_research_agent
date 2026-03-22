@@ -1,4 +1,5 @@
 from app.llm_provider import generate_response
+from app.schemas import Plan
 import json
 
 def clean_json_response(response: str) -> str:
@@ -15,17 +16,16 @@ def clean_json_response(response: str) -> str:
 
     return response.strip()
 
-def create_plan(user_query: str):
+def create_plan(user_query: str, feedback: str = None, max_retries: int = 3):
     prompt = f"""
 You are an AI planner.
 
 Break the user query into step-by-step actions.
 
-IMPORTANT:
+STRICT RULES:
+- Return ONLY valid JSON
+- No markdown
 - tool_input must ALWAYS be a string
-- Do NOT return dictionaries inside tool_input
-
-Return ONLY valid JSON.
 
 Format:
 {{
@@ -43,13 +43,21 @@ User Query:
 {user_query}
 """
 
-    response = generate_response(prompt)
-    cleaned = clean_json_response(response)
-    try:
-        plan_json = json.loads(cleaned)
-        return plan_json
-    except Exception as e:
-        print("Error parsing plan:", e)
-        print("Error response:", cleaned)
-        print("Error response:", response)
-        return None
+    if feedback:
+        prompt += f"""\n\nFeedback from previous attempt: {feedback}
+        
+        Improve the plan by fixing these issues.
+        """
+
+    for attempt in range(max_retries):
+        response = generate_response(prompt)
+        cleaned = clean_json_response(response)
+
+        try:
+            plan_dict = json.loads(cleaned)
+            plan = Plan(**plan_dict)
+            return plan
+
+        except Exception as e:
+            print(f"Attempt {attempt+1} failed:", e)
+    return None
